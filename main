@@ -1,0 +1,742 @@
+// Event Data Structure
+interface Event {
+  id: string;
+  title: string;
+  artist: string;
+  category: string;
+  location: string;
+  city: string;
+  date: string;
+  price: number;
+  image: string;
+  description: string;
+  venue: string;
+  time: string;
+  ticketsAvailable: number;
+}
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  bookings: string[];
+}
+
+// Sample Events Data
+const eventsData: Event[] = [
+  {
+    id: 'music-festival-2025',
+    title: 'Summer Music Festival',
+    artist: 'Various Artists',
+    category: 'music',
+    location: 'Central Park, NYC',
+    city: 'New York',
+    date: '2025-08-15',
+    price: 89,
+    image: 'https://ext.same-assets.com/3919840801/2162198304.jpeg',
+    description: 'Join us for the biggest music festival of the summer featuring top artists from around the world. Experience multiple stages, food vendors, and unforgettable performances.',
+    venue: 'Central Park',
+    time: '12:00 PM',
+    ticketsAvailable: 500
+  },
+  {
+    id: 'tech-conference-2025',
+    title: 'Tech Conference 2025',
+    artist: 'Industry Leaders',
+    category: 'technology',
+    location: 'San Francisco, CA',
+    city: 'San Francisco',
+    date: '2025-09-20',
+    price: 299,
+    image: 'https://ext.same-assets.com/3919840801/2133035482.jpeg',
+    description: 'Learn from industry experts about the latest trends in technology, AI, and innovation. Network with professionals and discover cutting-edge solutions.',
+    venue: 'Moscone Center',
+    time: '9:00 AM',
+    ticketsAvailable: 200
+  },
+  {
+    id: 'comedy-night-live',
+    title: 'Comedy Night Live',
+    artist: 'Stand-up Comics',
+    category: 'comedy',
+    location: 'Comedy Club, LA',
+    city: 'Los Angeles',
+    date: '2025-07-28',
+    price: 35,
+    image: 'https://ext.same-assets.com/3919840801/3515779638.jpeg',
+    description: 'Laugh out loud with our lineup of hilarious comedians. An evening of non-stop entertainment and great vibes.',
+    venue: 'The Comedy Store',
+    time: '8:00 PM',
+    ticketsAvailable: 150
+  },
+  {
+    id: 'art-gallery-opening',
+    title: 'Art Gallery Opening',
+    artist: 'Local Artists',
+    category: 'art',
+    location: 'Downtown Gallery',
+    city: 'New York',
+    date: '2025-08-10',
+    price: 0,
+    image: 'https://ext.same-assets.com/3919840801/141673508.jpeg',
+    description: 'Discover amazing contemporary art from talented local artists. Wine, networking, and inspiration await.',
+    venue: 'Metropolitan Gallery',
+    time: '6:00 PM',
+    ticketsAvailable: 100
+  },
+  {
+    id: 'food-wine-festival',
+    title: 'Food & Wine Festival',
+    artist: 'Chef Collaborations',
+    category: 'food',
+    location: 'Napa Valley, CA',
+    city: 'Napa',
+    date: '2025-09-05',
+    price: 125,
+    image: 'https://ext.same-assets.com/3919840801/2183066020.jpeg',
+    description: 'Indulge in gourmet food and fine wines from renowned chefs and wineries. A culinary experience like no other.',
+    venue: 'Napa Valley Grounds',
+    time: '11:00 AM',
+    ticketsAvailable: 300
+  }
+];
+
+// Application State
+class EventifyApp {
+  private currentUser: User | null = null;
+  private events: Event[] = eventsData;
+  private filteredEvents: Event[] = eventsData;
+  // private currentView: 'home' | 'event-detail' = 'home';
+  private currentEventId: string | null = null;
+  private cart: {eventId: string, quantity: number}[] = [];
+
+  constructor() {
+    this.init();
+  }
+
+  init() {
+    this.loadUserFromStorage();
+    this.setupEventListeners();
+    this.updateAuthUI();
+    this.renderEvents();
+    this.setupRouting();
+  }
+
+  // Authentication System
+  private loadUserFromStorage() {
+    const userData = localStorage.getItem('eventify_user');
+    if (userData) {
+      this.currentUser = JSON.parse(userData);
+    }
+  }
+
+  private saveUserToStorage() {
+    if (this.currentUser) {
+      localStorage.setItem('eventify_user', JSON.stringify(this.currentUser));
+    } else {
+      localStorage.removeItem('eventify_user');
+    }
+  }
+
+  showLoginModal() {
+    const modal = this.createModal(`
+      <div class="auth-modal">
+        <h2>Log In to Eventify</h2>
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="loginEmail">Email</label>
+            <input type="email" id="loginEmail" required>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" required>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Log In</button>
+            <button type="button" class="btn btn-outline" onclick="app.showSignupModal()">Create Account</button>
+          </div>
+        </form>
+      </div>
+    `);
+
+    const form = modal.querySelector('#loginForm') as HTMLFormElement;
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = (document.getElementById('loginEmail') as HTMLInputElement).value;
+      const password = (document.getElementById('loginPassword') as HTMLInputElement).value;
+
+      if (this.login(email, password)) {
+        this.closeModal();
+        this.showNotification('Welcome back!', 'success');
+      } else {
+        this.showNotification('Invalid credentials. Try email: demo@eventify.com', 'error');
+      }
+    });
+  }
+
+  showSignupModal() {
+    const modal = this.createModal(`
+      <div class="auth-modal">
+        <h2>Create Your Account</h2>
+        <form id="signupForm">
+          <div class="form-group">
+            <label for="signupName">Full Name</label>
+            <input type="text" id="signupName" required>
+          </div>
+          <div class="form-group">
+            <label for="signupEmail">Email</label>
+            <input type="email" id="signupEmail" required>
+          </div>
+          <div class="form-group">
+            <label for="signupPassword">Password</label>
+            <input type="password" id="signupPassword" required minlength="6">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Create Account</button>
+            <button type="button" class="btn btn-outline" onclick="app.showLoginModal()">Already have an account?</button>
+          </div>
+        </form>
+      </div>
+    `);
+
+    const form = modal.querySelector('#signupForm') as HTMLFormElement;
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = (document.getElementById('signupName') as HTMLInputElement).value;
+      const email = (document.getElementById('signupEmail') as HTMLInputElement).value;
+      const password = (document.getElementById('signupPassword') as HTMLInputElement).value;
+
+      if (this.signup(name, email, password)) {
+        this.closeModal();
+        this.showNotification('Account created successfully!', 'success');
+      }
+    });
+  }
+
+  private login(email: string, _password: string): boolean {
+    // Demo authentication - in real app, this would validate against backend
+    if (email === 'demo@eventify.com' || email.includes('@')) {
+      this.currentUser = {
+        id: Math.random().toString(36),
+        email: email,
+        name: email.split('@')[0],
+        bookings: []
+      };
+      this.saveUserToStorage();
+      this.updateAuthUI();
+      return true;
+    }
+    return false;
+  }
+
+  private signup(name: string, email: string, _password: string): boolean {
+    this.currentUser = {
+      id: Math.random().toString(36),
+      email: email,
+      name: name,
+      bookings: []
+    };
+    this.saveUserToStorage();
+    this.updateAuthUI();
+    return true;
+  }
+
+  logout() {
+    this.currentUser = null;
+    this.saveUserToStorage();
+    this.updateAuthUI();
+    this.showNotification('Logged out successfully', 'success');
+  }
+
+  private updateAuthUI() {
+    const loginBtn = document.querySelector('.btn-outline') as HTMLElement;
+    const signupBtn = document.querySelector('.btn-primary') as HTMLElement;
+
+    if (this.currentUser) {
+      loginBtn.textContent = `Welcome, ${this.currentUser.name}`;
+      loginBtn.onclick = () => this.showUserMenu();
+      signupBtn.textContent = 'Logout';
+      signupBtn.onclick = () => this.logout();
+    } else {
+      loginBtn.textContent = 'Log in';
+      loginBtn.onclick = () => this.showLoginModal();
+      signupBtn.textContent = 'Sign up';
+      signupBtn.onclick = () => this.showSignupModal();
+    }
+  }
+
+  // Search and Filtering System
+  private setupEventListeners() {
+    // Search functionality
+    const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+    const searchBtn = document.getElementById('searchBtn') as HTMLElement;
+
+    const performSearch = () => {
+      const searchTerm = searchInput.value.toLowerCase().trim();
+      this.filterEvents(searchTerm);
+    };
+
+    searchBtn.addEventListener('click', performSearch);
+    searchInput.addEventListener('input', performSearch);
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') performSearch();
+    });
+
+    // Category filters
+    this.addCategoryFilters();
+
+    // Navigation
+    const navLinks = document.querySelectorAll<HTMLAnchorElement>('.nav-link');
+    for (const link of navLinks) {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetId = link.getAttribute('href');
+        if (targetId) {
+          const targetSection = document.querySelector(targetId);
+          if (targetSection) {
+            targetSection.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start'
+            });
+          }
+        }
+      });
+    }
+  }
+
+  private addCategoryFilters() {
+    const categoriesSection = document.querySelector('.categories-grid');
+    if (!categoriesSection) return;
+
+    // Add "All" filter
+    const allFilter = document.createElement('div');
+    allFilter.className = 'category-card filter-all active';
+    allFilter.innerHTML = '<h3>All Events</h3>';
+    allFilter.addEventListener('click', () => this.filterByCategory('all'));
+    categoriesSection.insertBefore(allFilter, categoriesSection.firstChild);
+
+    // Make existing category cards functional
+    const categoryCards = document.querySelectorAll<HTMLElement>('.category-card:not(.filter-all)');
+    for (const card of categoryCards) {
+      card.addEventListener('click', () => {
+        const category = card.getAttribute('data-category');
+        if (category) {
+          this.filterByCategory(category);
+        }
+      });
+    }
+  }
+
+  private filterEvents(searchTerm: string = '', category: string = 'all') {
+    this.filteredEvents = this.events.filter(event => {
+      const matchesSearch = !searchTerm ||
+        event.title.toLowerCase().includes(searchTerm) ||
+        event.artist.toLowerCase().includes(searchTerm) ||
+        event.location.toLowerCase().includes(searchTerm) ||
+        event.city.toLowerCase().includes(searchTerm);
+
+      const matchesCategory = category === 'all' || event.category === category;
+
+      return matchesSearch && matchesCategory;
+    });
+
+    this.renderEvents();
+  }
+
+  private filterByCategory(category: string) {
+    // Update active category
+    const categoryCards = document.querySelectorAll('.category-card');
+    categoryCards.forEach(card => card.classList.remove('active'));
+
+    if (category === 'all') {
+      document.querySelector('.filter-all')?.classList.add('active');
+    } else {
+      document.querySelector(`[data-category="${category}"]`)?.classList.add('active');
+    }
+
+    const searchInput = document.getElementById('searchInput') as HTMLInputElement;
+    this.filterEvents(searchInput.value, category);
+  }
+
+  // Event Rendering
+  private renderEvents() {
+    this.renderFeaturedEvents();
+    this.renderTrendingEvents();
+  }
+
+  private renderFeaturedEvents() {
+    const container = document.querySelector('#featured .events-grid');
+    if (!container) return;
+
+    const featuredEvents = this.filteredEvents.slice(0, 5);
+    container.innerHTML = featuredEvents.map(event => this.createEventCard(event)).join('');
+  }
+
+  private renderTrendingEvents() {
+    const container = document.querySelector('#trending .events-grid');
+    if (!container) return;
+
+    const trendingEvents = this.filteredEvents.slice(0, 4);
+    container.innerHTML = trendingEvents.map(event => this.createEventCard(event)).join('');
+  }
+
+  private createEventCard(event: Event): string {
+    const formatDate = (dateStr: string) => {
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    };
+
+    return `
+      <div class="event-card" onclick="app.showEventDetail('${event.id}')">
+        <div class="event-image">
+          <img src="${event.image}" alt="${event.title}" loading="lazy">
+          <span class="event-category">${event.category.charAt(0).toUpperCase() + event.category.slice(1)}</span>
+        </div>
+        <div class="event-content">
+          <h3 class="event-title">${event.title}</h3>
+          <p class="event-artist">${event.artist}</p>
+          <div class="event-details">
+            <span class="event-location">📍 ${event.location}</span>
+            <span class="event-date">📅 ${formatDate(event.date)}</span>
+          </div>
+          <div class="event-footer">
+            <span class="event-price">${event.price === 0 ? 'Free' : '$' + event.price}</span>
+            <button class="btn btn-primary btn-small get-tickets-btn" onclick="event.stopPropagation(); app.addToCart('${event.id}')">
+              Get Tickets
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // Event Detail Pages & Booking
+  private setupRouting() {
+    // Simple hash-based routing
+    window.addEventListener('hashchange', () => this.handleRoute());
+    this.handleRoute();
+  }
+
+  private handleRoute() {
+    const hash = window.location.hash;
+    if (hash.startsWith('#event/')) {
+      const eventId = hash.replace('#event/', '');
+      this.showEventDetail(eventId);
+    } else {
+      this.showHomePage();
+    }
+  }
+
+  showEventDetail(eventId: string) {
+    const event = this.events.find(e => e.id === eventId);
+    if (!event) return;
+
+    // this.currentView = 'event-detail';
+    this.currentEventId = eventId;
+    window.location.hash = `event/${eventId}`;
+
+    document.body.innerHTML = this.createEventDetailPage(event);
+    this.setupEventDetailListeners();
+  }
+
+  private createEventDetailPage(event: Event): string {
+    const formatDate = (dateStr: string) => {
+      return new Date(dateStr).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    };
+
+    return `
+      <nav class="navbar">
+        <div class="nav-container">
+          <div class="nav-logo" onclick="app.showHomePage()">
+            <h2>Eventify</h2>
+          </div>
+          <div class="nav-menu">
+            <button class="btn btn-outline" onclick="app.showHomePage()">← Back to Events</button>
+            <div class="cart-icon" onclick="app.showCart()">
+              🛒 <span class="cart-count">${this.cart.length}</span>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <div class="event-detail-page">
+        <div class="event-hero">
+          <img src="${event.image}" alt="${event.title}" class="event-hero-image">
+          <div class="event-hero-content">
+            <div class="container">
+              <span class="event-category-tag">${event.category.toUpperCase()}</span>
+              <h1 class="event-hero-title">${event.title}</h1>
+              <p class="event-hero-subtitle">${event.artist}</p>
+              <div class="event-meta">
+                <div class="meta-item">
+                  <span class="meta-label">📅 Date</span>
+                  <span class="meta-value">${formatDate(event.date)} at ${event.time}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">📍 Location</span>
+                  <span class="meta-value">${event.venue}, ${event.location}</span>
+                </div>
+                <div class="meta-item">
+                  <span class="meta-label">🎫 Available</span>
+                  <span class="meta-value">${event.ticketsAvailable} tickets left</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="container">
+          <div class="event-detail-content">
+            <div class="event-info">
+              <h2>About This Event</h2>
+              <p class="event-description">${event.description}</p>
+
+              <h3>Event Details</h3>
+              <ul class="event-details-list">
+                <li><strong>Venue:</strong> ${event.venue}</li>
+                <li><strong>Address:</strong> ${event.location}</li>
+                <li><strong>Date:</strong> ${formatDate(event.date)}</li>
+                <li><strong>Time:</strong> ${event.time}</li>
+                <li><strong>Category:</strong> ${event.category.charAt(0).toUpperCase() + event.category.slice(1)}</li>
+              </ul>
+            </div>
+
+            <div class="booking-card">
+              <div class="price-section">
+                <span class="price-label">Ticket Price</span>
+                <span class="price-amount">${event.price === 0 ? 'FREE' : '$' + event.price}</span>
+              </div>
+
+              <div class="quantity-section">
+                <label for="ticketQuantity">Quantity</label>
+                <div class="quantity-controls">
+                  <button class="quantity-btn" onclick="app.decreaseQuantity()">-</button>
+                  <input type="number" id="ticketQuantity" value="1" min="1" max="10">
+                  <button class="quantity-btn" onclick="app.increaseQuantity()">+</button>
+                </div>
+              </div>
+
+              <div class="total-section">
+                <span class="total-label">Total</span>
+                <span class="total-amount" id="totalAmount">$${event.price}</span>
+              </div>
+
+              <button class="btn btn-primary btn-large book-tickets-btn" onclick="app.bookTickets('${event.id}')">
+                ${this.currentUser ? 'Book Tickets' : 'Login to Book'}
+              </button>
+
+              <button class="btn btn-outline btn-large" onclick="app.addToCart('${event.id}')">
+                Add to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  private setupEventDetailListeners() {
+    const quantityInput = document.getElementById('ticketQuantity') as HTMLInputElement;
+    const event = this.events.find(e => e.id === this.currentEventId);
+
+    if (quantityInput && event) {
+      quantityInput.addEventListener('input', () => {
+        this.updateTotal(event.price);
+      });
+    }
+  }
+
+  increaseQuantity() {
+    const input = document.getElementById('ticketQuantity') as HTMLInputElement;
+    const currentValue = parseInt(input.value);
+    if (currentValue < 10) {
+      input.value = (currentValue + 1).toString();
+      const event = this.events.find(e => e.id === this.currentEventId);
+      if (event) this.updateTotal(event.price);
+    }
+  }
+
+  decreaseQuantity() {
+    const input = document.getElementById('ticketQuantity') as HTMLInputElement;
+    const currentValue = parseInt(input.value);
+    if (currentValue > 1) {
+      input.value = (currentValue - 1).toString();
+      const event = this.events.find(e => e.id === this.currentEventId);
+      if (event) this.updateTotal(event.price);
+    }
+  }
+
+  private updateTotal(ticketPrice: number) {
+    const quantityInput = document.getElementById('ticketQuantity') as HTMLInputElement;
+    const totalElement = document.getElementById('totalAmount');
+
+    if (quantityInput && totalElement) {
+      const quantity = parseInt(quantityInput.value);
+      const total = ticketPrice * quantity;
+      totalElement.textContent = ticketPrice === 0 ? 'FREE' : '$' + total;
+    }
+  }
+
+  bookTickets(eventId: string) {
+    if (!this.currentUser) {
+      this.showLoginModal();
+      return;
+    }
+
+    const event = this.events.find(e => e.id === eventId);
+    const quantityInput = document.getElementById('ticketQuantity') as HTMLInputElement;
+
+    if (!event || !quantityInput) return;
+
+    const quantity = parseInt(quantityInput.value);
+    const total = event.price * quantity;
+
+    // In a real app, this would process payment
+    this.showBookingConfirmation(event, quantity, total);
+  }
+
+  addToCart(eventId: string) {
+    const event = this.events.find(e => e.id === eventId);
+    if (!event) return;
+
+    let quantity = 1;
+    const quantityInput = document.getElementById('ticketQuantity') as HTMLInputElement;
+    if (quantityInput) {
+      quantity = parseInt(quantityInput.value);
+    }
+
+    // Check if event already in cart
+    const existingItem = this.cart.find(item => item.eventId === eventId);
+    if (existingItem) {
+      existingItem.quantity += quantity;
+    } else {
+      this.cart.push({ eventId, quantity });
+    }
+
+    this.updateCartUI();
+    this.showNotification(`Added ${quantity} ticket(s) to cart!`, 'success');
+  }
+
+  private updateCartUI() {
+    const cartCount = document.querySelector('.cart-count');
+    if (cartCount) {
+      cartCount.textContent = this.cart.reduce((sum, item) => sum + item.quantity, 0).toString();
+    }
+  }
+
+  showCart() {
+    // Implementation for cart modal would go here
+    this.showNotification('Cart functionality coming soon!', 'info');
+  }
+
+  private showBookingConfirmation(event: Event, quantity: number, total: number) {
+    this.createModal(`
+      <div class="booking-confirmation">
+        <h2>🎉 Booking Confirmed!</h2>
+        <div class="confirmation-details">
+          <h3>${event.title}</h3>
+          <p><strong>Date:</strong> ${new Date(event.date).toLocaleDateString()}</p>
+          <p><strong>Location:</strong> ${event.location}</p>
+          <p><strong>Quantity:</strong> ${quantity} ticket(s)</p>
+          <p><strong>Total:</strong> ${total === 0 ? 'FREE' : '$' + total}</p>
+        </div>
+        <p>A confirmation email has been sent to ${this.currentUser?.email}</p>
+        <button class="btn btn-primary" onclick="app.closeModal(); app.showHomePage()">Back to Events</button>
+      </div>
+    `);
+
+    // Add booking to user history
+    if (this.currentUser) {
+      this.currentUser.bookings.push(event.id);
+      this.saveUserToStorage();
+    }
+  }
+
+  showHomePage() {
+    window.location.hash = '';
+    location.reload(); // Simple way to reset to home page
+  }
+
+  private showUserMenu() {
+    this.createModal(`
+      <div class="user-menu">
+        <h2>Welcome, ${this.currentUser?.name}!</h2>
+        <div class="user-actions">
+          <button class="btn btn-outline" onclick="app.closeModal()">Close</button>
+          <button class="btn btn-primary" onclick="app.logout(); app.closeModal()">Logout</button>
+        </div>
+        ${this.currentUser?.bookings.length ? `
+          <h3>Your Bookings</h3>
+          <div class="user-bookings">
+            ${this.currentUser.bookings.map(bookingId => {
+              const event = this.events.find(e => e.id === bookingId);
+              return event ? `<div class="booking-item">${event.title} - ${event.date}</div>` : '';
+            }).join('')}
+          </div>
+        ` : '<p>No bookings yet. Book your first event!</p>'}
+      </div>
+    `);
+  }
+
+  // Utility Functions
+  private createModal(content: string): HTMLElement {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-content">
+        <button class="modal-close" onclick="app.closeModal()">×</button>
+        ${content}
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  closeModal() {
+    const modal = document.querySelector('.modal-overlay');
+    if (modal) {
+      modal.remove();
+    }
+  }
+
+  private showNotification(message: string, type: 'success' | 'error' | 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+
+    document.body.appendChild(notification);
+
+    setTimeout(() => {
+      notification.classList.add('notification-show');
+    }, 100);
+
+    setTimeout(() => {
+      notification.classList.remove('notification-show');
+      setTimeout(() => notification.remove(), 300);
+    }, 3000);
+  }
+}
+
+// Global app instance
+declare global {
+  interface Window {
+    app: EventifyApp;
+  }
+}
+
+// Initialize app when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  window.app = new EventifyApp();
+  console.log('🎉 Enhanced Eventify loaded with Authentication, Search & Booking!');
+});
+
+// Expose app globally for HTML onclick handlers
+(window as any).app = window.app;
